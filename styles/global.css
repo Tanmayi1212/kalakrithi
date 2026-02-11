@@ -1,0 +1,26 @@
+/**
+ * Global Styles for Kalakrithi Project
+ * Imports Tailwind CSS layers and custom fonts
+ */
+
+/* Import Tailwind CSS directives */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Import Google Font - Lakki Reddy for traditional Indian aesthetic */
+@import url("https://fonts.googleapis.com/css2?family=Lakki+Reddy:ital,wght@0,400&display=swap");
+
+/* Reset body styles */
+@layer base {
+  body {
+    @apply leading-[normal] m-0;
+  }
+
+  /* Reset border widths across all elements */
+  *,
+  *::before,
+  *::after {
+    border-width: 0;
+  }
+}
