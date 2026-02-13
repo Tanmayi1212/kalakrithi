@@ -115,34 +115,9 @@ export default function WorkshopRegistration() {
             return;
         }
 
-        // Create booking directly (skip payment screenshot for now)
-        setSubmitting(true);
-        toast.loading("Creating your booking...");
-
-        try {
-            const result = await createBooking(
-                selectedWorkshop.id,
-                selectedSlot.id,
-                {
-                    ...formData,
-                    paymentScreenshot: null, // No screenshot for now
-                }
-            );
-
-            toast.dismiss();
-
-            if (result.success) {
-                setStep("complete");
-                toast.success("Registration successful!");
-            } else {
-                toast.error(result.error || "Registration failed");
-            }
-        } catch (error) {
-            console.error("Error submitting registration:", error);
-            toast.error("Failed to submit registration. Please try again.");
-        } finally {
-            setSubmitting(false);
-        }
+        // Proceed to payment step instead of creating booking directly
+        setStep("payment");
+        toast.success("Details saved! Please complete payment.");
     }
 
     async function handleFinalSubmit() {

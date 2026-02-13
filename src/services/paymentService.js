@@ -1,9 +1,7 @@
 /**
- * Payment Service - Handles payment screenshot uploads
+ * Payment Service - Handles payment screenshot uploads to Google Drive
  */
 
-import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
-import { storage } from "@/src/firebase";
 
 /**
  * Compress image before upload to reduce size and upload time
@@ -49,7 +47,7 @@ async function compressImage(file, maxWidth = 1200, quality = 0.8) {
 }
 
 /**
- * Upload payment screenshot to Firebase Storage with progress tracking
+ * Upload payment screenshot to Google Drive via API
  * @param {File} file - Payment screenshot file
  * @param {string} rollNumber - Student's roll number
  * @param {Function} onProgress - Progress callback (0-100)
@@ -79,45 +77,56 @@ export async function uploadPaymentScreenshot(file, rollNumber, onProgress = nul
         console.log("✅ Compressed to:", `${(compressedFile.size / 1024).toFixed(2)} KB`);
         console.log("💾 Size reduction:", `${((1 - compressedFile.size / file.size) * 100).toFixed(1)}%`);
 
-        // Create unique filename
-        const timestamp = Date.now();
-        const filename = `${rollNumber}_${timestamp}.jpg`;
-        const storageRef = ref(storage, `payment-screenshots/${filename}`);
+        // Upload to Google Drive via API
+        console.log("📍 Uploading to Google Drive...");
 
-        console.log("📍 Upload path:", storageRef.fullPath);
+        // Create form data
+        const formData = new FormData();
+        formData.append('file', compressedFile);
+        formData.append('rollNumber', rollNumber);
 
-        // Upload with progress tracking
-        console.log("⏳ Uploading...");
-        const uploadTask = uploadBytesResumable(storageRef, compressedFile);
+        // Update progress to show upload starting
+        if (onProgress) {
+            onProgress(10);
+        }
 
-        return new Promise((resolve, reject) => {
-            uploadTask.on(
-                'state_changed',
-                (snapshot) => {
-                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                    console.log(`📊 Upload progress: ${progress.toFixed(1)}%`);
-                    if (onProgress) {
-                        onProgress(progress);
-                    }
-                },
-                (error) => {
-                    console.error("❌ Upload error:", error);
-                    reject(error);
-                },
-                async () => {
-                    // Upload completed
-                    console.log("✅ Upload complete!");
-                    const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                    console.log("🔗 Download URL:", downloadURL);
-                    resolve(downloadURL);
-                }
-            );
+        // Call API route
+        const response = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData,
         });
+
+        // Update progress
+        if (onProgress) {
+            onProgress(90);
+        }
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Upload failed');
+        }
+
+        const data = await response.json();
+
+        if (!data.success || !data.url) {
+            throw new Error('Invalid response from upload API');
+        }
+
+        // Upload completed
+        console.log("✅ Upload complete!");
+        console.log("🔗 Drive URL:", data.url);
+
+        if (onProgress) {
+            onProgress(100);
+        }
+
+        return data.url;
+
     } catch (error) {
         console.error("❌ Upload error:");
         console.error("Error message:", error.message);
-        console.error("Error code:", error.code);
         console.error("Full error:", error);
         throw error;
     }
 }
+
