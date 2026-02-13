@@ -1,0 +1,32 @@
+<svg width="300" height="400" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="300" height="400" fill="#ffffff"/>
+  <rect x="20" y="20" width="260" height="360" fill="#f0f9ff" rx="10"/>
+  
+  <!-- QR Code Pattern (simplified placeholder) -->
+  <g transform="translate(75, 80)">
+    <!-- Create a grid pattern to look like QR code -->
+    <rect x="0" y="0" width="150" height="150" fill="#000000"/>
+    <rect x="10" y="10" width="130" height="130" fill="#ffffff"/>
+    <rect x="20" y="20" width="30" height="30" fill="#000000"/>
+    <rect x="100" y="20" width="30" height="30" fill="#000000"/>
+    <rect x="20" y="100" width="30" height="30" fill="#000000"/>
+    <rect x="60" y="60" width="30" height="30" fill="#000000"/>
+    <rect x="70" y="70" width="10" height="10" fill="#ffffff"/>
+    <!-- Add more squares for realistic QR pattern -->
+    <rect x="80" y="20" width="10" height="10" fill="#000000"/>
+    <rect x="60" y="40" width="10" height="10" fill="#000000"/>
+    <rect x="40" y="60" width="10" height="10" fill="#000000"/>
+    <rect x="100" y="80" width="10" height="10" fill="#000000"/>
+    <rect x="110" y="100" width="10" height="10" fill="#000000"/>
+  </g>
+  
+  <!-- UPI Icon -->
+  <circle cx="150" cy="270" r="20" fill="#0d9488"/>
+  <text x="150" y="277" font-family="Arial, sans-serif" font-size="20" fill="#ffffff" text-anchor="middle" font-weight="bold">₹</text>
+  
+  <!-- Text -->
+  <text x="150" y="310" font-family="Arial, sans-serif" font-size="16" fill="#0f172a" text-anchor="middle" font-weight="bold">PLACEHOLDER QR CODE</text>
+  <text x="150" y="335" font-family="Arial, sans-serif" font-size="14" fill="#64748b" text-anchor="middle">Scan to pay via UPI</text>
+  <text x="150" y="355" font-family="Arial, sans-serif" font-size="12" fill="#94a3b8" text-anchor="middle">Replace with actual QR code</text>
+</svg>

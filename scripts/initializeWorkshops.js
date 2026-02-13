@@ -67,6 +67,7 @@ async function initializeWorkshops() {
             // Create workshop document
             await db.collection('workshops').doc(id).set({
                 ...workshopData,
+                isActive: true,
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
                 updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             });
@@ -79,6 +80,7 @@ async function initializeWorkshops() {
                     ...slot,
                     workshopId: id,
                     workshopName: workshopData.name,
+                    isClosed: false,
                     createdAt: admin.firestore.FieldValue.serverTimestamp(),
                 });
                 console.log(`   ✓ Added slot: ${slot.time}`);

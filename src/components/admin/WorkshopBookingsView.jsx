@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { subscribeToBookingsByStatus, confirmWorkshopBooking } from "@/src/services/adminWorkshopService";
 import { getCurrentAdmin } from "@/src/utils/adminAuth";
-import { CheckCircle, Clock, User, Mail, Phone, Calendar } from "lucide-react";
+import { CheckCircle, Clock, User, Mail, Phone, Calendar, Eye, Image as ImageIcon } from "lucide-react";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
 import { Badge } from "../ui/Badge";
@@ -12,28 +12,32 @@ import toast from "react-hot-toast";
 export default function WorkshopBookingsView() {
     const [pendingBookings, setPendingBookings] = useState([]);
     const [confirmedBookings, setConfirmedBookings] = useState([]);
-    const [activeTab, setActiveTab] = useState("pending"); // "pending" | "confirmed"
+    const [activeTab, setActiveTab] = useState("pending");
     const [loading, setLoading] = useState(true);
     const [processingId, setProcessingId] = useState(null);
     const [adminUser, setAdminUser] = useState(null);
+    const [viewingScreenshot, setViewingScreenshot] = useState(null);
 
     useEffect(() => {
         loadAdmin();
     }, []);
 
     useEffect(() => {
-        // Subscribe to pending bookings
+        console.log("🔍 Setting up real-time subscriptions...");
+
         const unsubscribePending = subscribeToBookingsByStatus("pending", (bookings) => {
+            console.log("✅ Pending bookings callback received:", bookings.length);
             setPendingBookings(bookings);
             setLoading(false);
         });
 
-        // Subscribe to confirmed bookings
         const unsubscribeConfirmed = subscribeToBookingsByStatus("confirmed", (bookings) => {
+            console.log("✅ Confirmed bookings callback received:", bookings.length);
             setConfirmedBookings(bookings);
         });
 
         return () => {
+            console.log("🔍 Cleaning up subscriptions");
             unsubscribePending();
             unsubscribeConfirmed();
         };
@@ -156,7 +160,7 @@ export default function WorkshopBookingsView() {
                                 </Badge>
                             </div>
 
-                            <div className="space-y-2 text-sm">
+                            <div className="space-y-2 text-sm mb-4">
                                 <div className="flex items-center gap-2 text-gray-700">
                                     <User className="w-4 h-4 text-gray-400" />
                                     <span className="font-medium">Roll:</span>
@@ -193,10 +197,42 @@ export default function WorkshopBookingsView() {
                                         })}
                                     </span>
                                 </div>
+
+                                {booking.amount && (
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-medium text-gray-700">Amount:</span>
+                                        <span className="text-xl font-bold text-teal-600">₹{booking.amount}</span>
+                                    </div>
+                                )}
                             </div>
 
+                            {/* Payment Screenshot */}
+                            {booking.paymentScreenshot && (
+                                <div className="mb-4">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                                            <ImageIcon className="w-4 h-4" />
+                                            Payment Screenshot
+                                        </span>
+                                        <button
+                                            onClick={() => setViewingScreenshot(booking.paymentScreenshot)}
+                                            className="text-xs text-teal-600 hover:text-teal-700 font-medium flex items-center gap-1"
+                                        >
+                                            <Eye className="w-3.5 h-3.5" />
+                                            View Full
+                                        </button>
+                                    </div>
+                                    <img
+                                        src={booking.paymentScreenshot}
+                                        alt="Payment screenshot"
+                                        className="w-full h-32 object-cover rounded-lg border border-gray-200 hover:opacity-90 cursor-pointer transition-opacity"
+                                        onClick={() => setViewingScreenshot(booking.paymentScreenshot)}
+                                    />
+                                </div>
+                            )}
+
                             {activeTab === "pending" && (
-                                <div className="mt-4 pt-4 border-t border-gray-200">
+                                <div className="pt-4 border-t border-gray-200">
                                     <Button
                                         onClick={() => handleConfirm(booking)}
                                         disabled={processingId === booking.id}
@@ -211,6 +247,29 @@ export default function WorkshopBookingsView() {
                             )}
                         </Card>
                     ))}
+                </div>
+            )}
+
+            {/* Screenshot Modal */}
+            {viewingScreenshot && (
+                <div
+                    className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+                    onClick={() => setViewingScreenshot(null)}
+                >
+                    <div className="relative max-w-4xl w-full">
+                        <button
+                            onClick={() => setViewingScreenshot(null)}
+                            className="absolute -top-12 right-0 text-white hover:text-gray-300 text-sm flex items-center gap-2"
+                        >
+                            Close ✕
+                        </button>
+                        <img
+                            src={viewingScreenshot}
+                            alt="Payment screenshot full view"
+                            className="w-full h-auto max-h-[90vh] object-contain rounded-lg"
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                    </div>
                 </div>
             )}
         </div>
