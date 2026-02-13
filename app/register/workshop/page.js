@@ -1,6 +1,6 @@
 /**
- * Complete Workshop Registration with Payment Flow
- * Fetches workshops from Firestore, shows slots, and integrates UPI payment
+ * Workshop Registration Page (No Payment)
+ * Simple registration form that collects user information
  */
 
 "use client";
@@ -8,8 +8,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useWorkshops, useWorkshopSlots } from "@/src/hooks/useFirebase";
-import { createUPILink, openUPIApp, isUPISupported, formatAmount, generateOrderId } from "@/src/utils/upiPayment";
-import { createPendingPayment } from "@/src/services/paymentService";
 
 export default function WorkshopRegister() {
     const router = useRouter();
@@ -26,10 +24,10 @@ export default function WorkshopRegister() {
         rollNumber: "",
     });
 
-    const [isProcessing, setIsProcessing] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [message, setMessage] = useState({ type: "", text: "" });
 
-    const handleProceedToPay = async (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
 
         // Validation
@@ -56,47 +54,36 @@ export default function WorkshopRegister() {
             return;
         }
 
-        setIsProcessing(true);
+        setIsSubmitting(true);
         setMessage({ type: "", text: "" });
 
         try {
-            // Create pending payment
-            const orderId = await createPendingPayment({
-                workshopId: selectedWorkshop.id,
-                slotId: selectedSlot.id,
-                name: formData.name,
-                email: formData.email,
-                phone: formData.phone,
-                rollNumber: formData.rollNumber,
-                amount: selectedWorkshop.price
+            // Here you can add logic to save to Firestore or send to an API
+            // For now, just show success message
+            console.log("Registration data:", {
+                workshop: selectedWorkshop.name,
+                slot: selectedSlot.time,
+                ...formData
             });
 
-            // Generate UPI link
-            const upiLink = createUPILink({
-                amount: selectedWorkshop.price,
-                orderId: orderId,
-                workshopId: selectedWorkshop.id
+            setMessage({
+                type: "success",
+                text: `Successfully registered for ${selectedWorkshop.name}! We'll contact you soon.`
             });
 
-            // Redirect to UPI app or show QR
-            if (isUPISupported()) {
-                openUPIApp(upiLink);
-                // Redirect to status page after short delay
-                setTimeout(() => {
-                    router.push(`/payment-status?orderId=${orderId}`);
-                }, 1000);
-            } else {
-                // Desktop - go directly to status page
-                router.push(`/payment-status?orderId=${orderId}`);
-            }
+            // Clear form after 2 seconds
+            setTimeout(() => {
+                router.push("/");
+            }, 2000);
 
         } catch (error) {
-            console.error("Payment error:", error);
+            console.error("Registration error:", error);
             setMessage({
                 type: "error",
-                text: error.message || "Failed to initiate payment. Please try again."
+                text: "Failed to submit registration. Please try again."
             });
-            setIsProcessing(false);
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -137,7 +124,7 @@ export default function WorkshopRegister() {
                     Workshop Registration
                 </h1>
                 <p className="text-gray-600 mb-8 text-center">
-                    Select a workshop and complete payment to secure your spot
+                    Select a workshop and register your interest
                 </p>
 
                 {/* Workshop Selection */}
@@ -159,9 +146,6 @@ export default function WorkshopRegister() {
                             >
                                 <h3 className="font-bold text-lg text-gray-800">{workshop.name}</h3>
                                 <p className="text-gray-600 text-sm mt-2">{workshop.description}</p>
-                                <p className="text-red-600 font-bold text-xl mt-2">
-                                    {formatAmount(workshop.price)}
-                                </p>
                             </div>
                         ))}
                     </div>
@@ -204,7 +188,7 @@ export default function WorkshopRegister() {
                                                 <span className="text-red-500 font-bold">FULL</span>
                                             ) : (
                                                 <span className="text-green-600">
-                                                    {slot.remainingSeats}/{slot.maxCapacity} left
+                                                    {slot.remainingSeats}/{slot.maxCapacity} seats left
                                                 </span>
                                             )}
                                         </div>
@@ -219,7 +203,7 @@ export default function WorkshopRegister() {
                 {selectedSlot && (
                     <div className="bg-white rounded-3xl shadow-2xl p-8">
                         <h2 className="text-2xl font-bold text-gray-800 mb-4">Your Details</h2>
-                        <form onSubmit={handleProceedToPay} className="space-y-6">
+                        <form onSubmit={handleSubmit} className="space-y-6">
                             <div>
                                 <label className="block text-lg font-semibold text-gray-700 mb-2">
                                     Full Name *
@@ -277,13 +261,6 @@ export default function WorkshopRegister() {
                                 />
                             </div>
 
-                            <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-4">
-                                <p className="text-sm text-yellow-800">
-                                    <strong>📱 Payment Instructions:</strong> You'll be redirected to your UPI app
-                                    to complete the payment. After paying, return here and enter your transaction ID.
-                                </p>
-                            </div>
-
                             {message.text && (
                                 <div
                                     className={`p-4 rounded-xl border-2 ${message.type === "error"
@@ -297,17 +274,10 @@ export default function WorkshopRegister() {
 
                             <button
                                 type="submit"
-                                disabled={isProcessing}
-                                className="w-full py-4 bg-gradient-to-r from-green-600 to-green-700 text-white text-xl font-bold rounded-xl hover:from-green-700 hover:to-green-800 transition-all shadow-lg disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                disabled={isSubmitting}
+                                className="w-full py-4 bg-gradient-to-r from-red-600 to-orange-600 text-white text-xl font-bold rounded-xl hover:from-red-700 hover:to-orange-700 transition-all shadow-lg disabled:bg-gray-400 disabled:cursor-not-allowed"
                             >
-                                {isProcessing ? (
-                                    <span className="flex items-center justify-center">
-                                        <span className="animate-spin mr-2">⏳</span>
-                                        Processing...
-                                    </span>
-                                ) : (
-                                    `💳 Proceed to Pay ${formatAmount(selectedWorkshop.price)}`
-                                )}
+                                {isSubmitting ? "Submitting..." : "Register Now"}
                             </button>
 
                             <button

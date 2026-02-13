@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { submitGameRegistration } from "@/services/registrations";
 
 const GamesPage = () => {
     const router = useRouter();
@@ -9,104 +10,104 @@ const GamesPage = () => {
     const [selectedGame, setSelectedGame] = useState(null);
     const [showRegistrationModal, setShowRegistrationModal] = useState(false);
 
-    // Mock games data - will be replaced with API call
+    // Mock games data - will be replaced with Firebase data
     useEffect(() => {
         // Simulate API call
         setTimeout(() => {
             setGames([
                 {
-                    id: 1,
+                    id: "1",
                     title: "Gilli Danda Championship",
                     description: "Test your skills in this traditional Indian stick game. Compete in teams and showcase your precision and power.",
                     category: "Outdoor",
                     teamSize: "4 players",
                     slots: 20,
                     availableSlots: 12,
-                    price: 199,
+                    price: 0,
                     icon: "🏏",
                     color: "from-blue-400 to-cyan-500"
                 },
                 {
-                    id: 2,
+                    id: "2",
                     title: "Kabaddi Tournament",
                     description: "Join the ultimate test of strength and strategy. Form teams and compete in this ancient contact sport.",
                     category: "Team Sport",
                     teamSize: "7 players",
                     slots: 16,
                     availableSlots: 8,
-                    price: 299,
+                    price: 0,
                     icon: "🤼",
                     color: "from-green-400 to-emerald-500"
                 },
                 {
-                    id: 3,
+                    id: "3",
                     title: "Lagori (Pitthu) Battle",
                     description: "Stack stones and defend! A classic game combining accuracy, teamwork, and quick reflexes.",
                     category: "Outdoor",
                     teamSize: "6 players",
                     slots: 24,
                     availableSlots: 18,
-                    price: 149,
+                    price: 0,
                     icon: "🎯",
                     color: "from-yellow-400 to-orange-500"
                 },
                 {
-                    id: 4,
+                    id: "4",
                     title: "Kho-Kho Sprint",
                     description: "Experience the thrill of this fast-paced chasing game. Quick reflexes and team coordination are key!",
                     category: "Team Sport",
                     teamSize: "9 players",
                     slots: 18,
                     availableSlots: 14,
-                    price: 179,
+                    price: 0,
                     icon: "🏃",
                     color: "from-red-400 to-pink-500"
                 },
                 {
-                    id: 5,
+                    id: "5",
                     title: "Traditional Pallanguzhi",
                     description: "Engage your strategic mind in this ancient board game from South India. Solo or pair competitions available.",
                     category: "Indoor",
                     teamSize: "1-2 players",
                     slots: 30,
                     availableSlots: 25,
-                    price: 99,
+                    price: 0,
                     icon: "🎲",
                     color: "from-purple-400 to-indigo-500"
                 },
                 {
-                    id: 6,
+                    id: "6",
                     title: "Chungi (Footbag) Challenge",
                     description: "Show off your foot-eye coordination in this traditional hacky sack game. Individual and team events.",
                     category: "Outdoor",
                     teamSize: "1-3 players",
                     slots: 25,
                     availableSlots: 20,
-                    price: 129,
+                    price: 0,
                     icon: "⚽",
                     color: "from-teal-400 to-blue-500"
                 },
                 {
-                    id: 7,
+                    id: "7",
                     title: "Aadu Puli Attam",
                     description: "Master the tiger and goat strategic board game. Outsmart your opponent in this battle of wits.",
                     category: "Indoor",
                     teamSize: "2 players",
                     slots: 20,
                     availableSlots: 16,
-                    price: 89,
+                    price: 0,
                     icon: "🐅",
                     color: "from-orange-400 to-red-500"
                 },
                 {
-                    id: 8,
+                    id: "8",
                     title: "Bamboo Pole Climbing",
                     description: "Test your strength and agility in this traditional climbing competition. Race to the top!",
                     category: "Adventure",
                     teamSize: "1 player",
                     slots: 15,
                     availableSlots: 5,
-                    price: 249,
+                    price: 0,
                     icon: "🎋",
                     color: "from-green-500 to-teal-600"
                 }
@@ -195,7 +196,7 @@ const GamesPage = () => {
                                     <span className="text-xs font-bold text-gray-800">{game.category}</span>
                                 </div>
                                 <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full">
-                                    <span className="text-sm font-bold text-gray-800">₹{game.price}</span>
+                                    <span className="text-sm font-bold text-gray-800">FREE</span>
                                 </div>
                             </div>
 
@@ -242,8 +243,8 @@ const GamesPage = () => {
                                     onClick={() => handleRegister(game)}
                                     disabled={game.availableSlots === 0}
                                     className={`w-full py-2.5 rounded-xl font-bold text-white transition-all transform hover:scale-105 text-sm ${game.availableSlots === 0
-                                            ? 'bg-gray-400 cursor-not-allowed'
-                                            : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg hover:shadow-xl'
+                                        ? 'bg-gray-400 cursor-not-allowed'
+                                        : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg hover:shadow-xl'
                                         }`}
                                 >
                                     {game.availableSlots === 0 ? 'Full' : 'Register Now'}
@@ -279,6 +280,7 @@ const GameRegistrationModal = ({ game, onClose }) => {
     });
     const [errors, setErrors] = useState({});
     const [submitting, setSubmitting] = useState(false);
+    const [submitError, setSubmitError] = useState(null);
 
     const handleChange = (e) => {
         setFormData({
@@ -292,6 +294,7 @@ const GameRegistrationModal = ({ game, onClose }) => {
                 [e.target.name]: ''
             });
         }
+        setSubmitError(null);
     };
 
     const validateForm = () => {
@@ -322,20 +325,40 @@ const GameRegistrationModal = ({ game, onClose }) => {
         if (!validateForm()) return;
 
         setSubmitting(true);
+        setSubmitError(null);
 
-        // Simulate API call
-        setTimeout(() => {
-            // Store registration data in session storage
-            sessionStorage.setItem('registrationData', JSON.stringify({
-                ...formData,
-                game: game.title,
+        try {
+            const result = await submitGameRegistration({
                 gameId: game.id,
-                amount: game.price
-            }));
+                teamName: formData.teamName,
+                captainName: formData.captainName,
+                email: formData.email,
+                phone: formData.phone,
+                rollNumber: formData.rollNumber,
+                college: formData.college,
+                teamMembers: formData.teamMembers
+            });
 
-            // Redirect to payment page
-            router.push('/payment?type=game&id=' + game.id);
-        }, 1000);
+            if (result.success) {
+                // Store success data and redirect to success page
+                sessionStorage.setItem('registrationSuccess', JSON.stringify({
+                    type: 'game',
+                    teamName: formData.teamName,
+                    captainName: formData.captainName,
+                    email: formData.email,
+                    gameName: game.title,
+                    message: result.message
+                }));
+                router.push('/register/success');
+            } else {
+                setSubmitError(result.error);
+                setSubmitting(false);
+            }
+        } catch (error) {
+            console.error('Submission error:', error);
+            setSubmitError('An unexpected error occurred. Please try again.');
+            setSubmitting(false);
+        }
     };
 
     return (
@@ -363,6 +386,18 @@ const GameRegistrationModal = ({ game, onClose }) => {
 
                 {/* Modal Body */}
                 <form onSubmit={handleSubmit} className="p-6">
+                    {/* Error Alert */}
+                    {submitError && (
+                        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl">
+                            <div className="flex items-start">
+                                <svg className="w-5 h-5 text-red-600 mt-0.5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                </svg>
+                                <p className="text-sm text-red-800">{submitError}</p>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="space-y-4">
                         {/* Team Name */}
                         <div>
@@ -497,8 +532,8 @@ const GameRegistrationModal = ({ game, onClose }) => {
                             <p><span className="font-semibold">Game:</span> {game.title}</p>
                             <p><span className="font-semibold">Category:</span> {game.category}</p>
                             <p><span className="font-semibold">Team Size:</span> {game.teamSize}</p>
-                            <p className="text-lg font-bold text-gray-800 mt-2">
-                                Registration Fee: ₹{game.price}
+                            <p className="text-lg font-bold text-green-600 mt-2">
+                                FREE Registration
                             </p>
                         </div>
                     </div>
@@ -515,10 +550,10 @@ const GameRegistrationModal = ({ game, onClose }) => {
                                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                 </svg>
-                                Processing...
+                                Submitting...
                             </span>
                         ) : (
-                            'Proceed to Payment'
+                            'Complete Registration'
                         )}
                     </button>
                 </form>

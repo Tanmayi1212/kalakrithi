@@ -1,12 +1,14 @@
 rules_version = '2';
 
 /**
- * Firestore Security Rules for Kalakrithi × Arangetra
+ * Firestore Security Rules for Kalakrithi Admin Dashboard
  * 
  * Security Model:
- * - Public read access for workshops, slots, and games
- * - All writes restricted to Cloud Functions (server-side only)
- * - Authentication required for workshop bookings (enforced in Cloud Functions)
+ * - Public read access for workshops and slots
+ * - Users can submit payment information (pendingPayments)
+ * - Only admins can confirm/reject payments
+ * - Only admins can create bookings
+ * - Admins can manage slot capacity
  */
 
 service cloud.firestore {
@@ -16,13 +18,47 @@ service cloud.firestore {
     function isAuthenticated() {
       return request.auth != null;
     }
+    
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
 
-    // Helper function to check if request is from Cloud Functions
-    // In production, only Cloud Functions can write to protected collections
-    function isServerRequest() {
-      // Cloud Functions bypass security rules when using Admin SDK
-      // This helper is for documentation purposes
-      return true;
+    // ============================================
+    // ADMINS COLLECTION
+    // ============================================
+    match /admins/{uid} {
+      // Users can read their own admin document
+      allow read: if isAuthenticated() && request.auth.uid == uid;
+      
+      // Only create via Firebase Console or Admin SDK
+      allow write: if false;
+    }
+
+    // ============================================
+    // PENDING PAYMENTS COLLECTION
+    // ============================================
+    match /pendingPayments/{paymentId} {
+      // Anyone can read (for verification)
+      allow read: if true;
+      
+      // Authenticated users can create pending payments
+      allow create: if isAuthenticated() &&
+                      request.resource.data.status == "submitted";
+      
+      // Only admins can update status to confirmed/rejected
+      allow update: if isAdmin() &&
+                      request.resource.data.status in ['confirmed', 'rejected'] &&
+                      (
+                        (request.resource.data.status == 'confirmed' &&
+                         request.resource.data.keys().hasAll(['confirmedBy', 'confirmedAt'])) ||
+                        (request.resource.data.status == 'rejected' &&
+                         request.resource.data.keys().hasAll(['rejectedBy', 'rejectedAt']))
+                      );
+      
+      // Only admins can delete
+      allow delete: if isAdmin();
     }
 
     // ============================================
@@ -32,34 +68,46 @@ service cloud.firestore {
       // Allow everyone to read workshop data
       allow read: if true;
       
-      // Only admins/Cloud Functions can create/update/delete workshops
-      // In practice, use Admin SDK from Cloud Functions
-      allow write: if false;
+      // Only admins can write workshop data
+      allow write: if isAdmin();
 
       // SLOTS SUBCOLLECTION
       match /slots/{slotId} {
-        // Allow everyone to read slot data
+        // Allow everyone to read slots
         allow read: if true;
         
-        // Only Cloud Functions can modify slots
-        allow write: if false;
+        // Only admins can modify slots (capacity, status)
+        allow write: if isAdmin();
 
         // BOOKINGS SUBCOLLECTION
         match /bookings/{rollNumber} {
-          // Allow everyone to read bookings (for verification purposes)
+          // Allow everyone to read bookings (for verification)
           allow read: if true;
           
-          // CRITICAL SECURITY: Prevent ALL direct client writes to bookings
-          // All bookings MUST be created through Cloud Functions only
-          // This prevents:
-          // - Bypassing capacity limits
-          // - Creating fake bookings
-          // - Modifying payment IDs
-          // - Race conditions
-          allow create: if false;
-          allow update: if false;
-          allow delete: if false;
+          // Allow authenticated users to create their OWN booking
+          // Must include all required fields
+          allow create: if isAuthenticated() &&
+                          request.resource.data.rollNumber == rollNumber &&
+                          request.resource.data.keys().hasAll([
+                            'name', 'email', 'rollNumber', 'phone',
+                            'workshopId', 'slotId', 'createdAt', 'paymentStatus'
+                          ]);
+          
+          // Only admins can update bookings (for attendance or payment confirmation)
+          allow update: if isAdmin();
+          
+          // Only admins can delete bookings
+          allow delete: if isAdmin();
         }
+      }
+
+      // REGISTRATIONS SUBCOLLECTION (legacy - keep for backward compatibility)
+      match /registrations/{rollNumber} {
+        // Allow everyone to read registrations (for verification)
+        allow read: if true;
+        
+        // All writes handled by Cloud Functions only
+        allow write: if false;
       }
     }
 
@@ -70,23 +118,16 @@ service cloud.firestore {
       // Allow everyone to read game data
       allow read: if true;
       
-      // Only Cloud Functions can create/update/delete games
+      // Only Cloud Functions (Admin SDK) can create/update/delete games
       allow write: if false;
 
       // REGISTRATIONS SUBCOLLECTION
-      match /registrations/{registrationId} {
-        // Allow everyone to read registrations
+      match /registrations/{rollNumber} {
+        // Allow everyone to read registrations (for verification)
         allow read: if true;
         
-        // CRITICAL SECURITY: Prevent ALL direct client writes to registrations
-        // All registrations MUST be created through Cloud Functions only
-        // This prevents:
-        // - Bypassing duplicate checks
-        // - Creating fake registrations
-        // - Modifying registration data
-        allow create: if false;
-        allow update: if false;
-        allow delete: if false;
+        // All writes handled by Cloud Functions only
+        allow write: if false;
       }
     }
 

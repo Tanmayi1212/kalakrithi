@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { submitWorkshopRegistration } from "@/services/registrations";
 
 const WorkshopsPage = () => {
     const router = useRouter();
@@ -9,80 +10,80 @@ const WorkshopsPage = () => {
     const [selectedWorkshop, setSelectedWorkshop] = useState(null);
     const [showRegistrationModal, setShowRegistrationModal] = useState(false);
 
-    // Mock workshop data - will be replaced with API call
+    // Mock workshop data - will be replaced with Firebase data
     useEffect(() => {
         // Simulate API call
         setTimeout(() => {
             setWorkshops([
                 {
-                    id: 1,
+                    id: "1",
                     title: "Madhubani Painting",
                     description: "Learn the ancient art of Madhubani painting from Bihar, featuring intricate patterns and vibrant colors.",
                     instructor: "Priya Kumari",
                     duration: "2 hours",
                     slots: 30,
                     availableSlots: 15,
-                    price: 299,
+                    price: 0,
                     image: "/madhubani.jpg",
                     color: "from-orange-400 to-red-500"
                 },
                 {
-                    id: 2,
+                    id: "2",
                     title: "Warli Art",
                     description: "Discover the tribal art form of Warli from Maharashtra, known for its simplistic yet beautiful designs.",
                     instructor: "Ramesh Patil",
                     duration: "2.5 hours",
                     slots: 25,
                     availableSlots: 20,
-                    price: 349,
+                    price: 0,
                     image: "/warli.jpg",
                     color: "from-green-400 to-teal-500"
                 },
                 {
-                    id: 3,
+                    id: "3",
                     title: "Kolam Designs",
                     description: "Master the art of creating beautiful Kolam patterns, a traditional South Indian floor decoration.",
                     instructor: "Lakshmi Iyer",
                     duration: "1.5 hours",
                     slots: 40,
                     availableSlots: 35,
-                    price: 249,
+                    price: 0,
                     image: "/kolam.jpg",
                     color: "from-pink-400 to-purple-500"
                 },
                 {
-                    id: 4,
+                    id: "4",
                     title: "Gond Tribal Art",
                     description: "Explore the vibrant Gond art style from Madhya Pradesh with its signature dots and dashes.",
                     instructor: "Venkat Shyam",
                     duration: "3 hours",
                     slots: 20,
                     availableSlots: 8,
-                    price: 399,
+                    price: 0,
                     image: "/gond.jpg",
                     color: "from-blue-400 to-indigo-500"
                 },
                 {
-                    id: 5,
+                    id: "5",
                     title: "Pattachitra Painting",
                     description: "Learn the classical Pattachitra cloth-based scroll painting from Odisha and West Bengal.",
                     instructor: "Sudarsan Pattnaik",
                     duration: "2 hours",
                     slots: 30,
                     availableSlots: 25,
-                    price: 329,
+                    price: 0,
                     image: "/pattachitra.jpg",
                     color: "from-yellow-400 to-orange-500"
                 },
                 {
-                    id: 6,
+                    id: "6",
                     title: "Kalamkari Art",
                     description: "Experience the traditional Kalamkari hand-painting technique using natural dyes from Andhra Pradesh.",
                     instructor: "Nirmala Reddy",
                     duration: "2.5 hours",
                     slots: 25,
                     availableSlots: 18,
-                    price: 379,
+                    price: 0,
                     image: "/kalamkari.jpg",
                     color: "from-red-400 to-pink-500"
                 }
@@ -154,7 +155,7 @@ const WorkshopsPage = () => {
                                     <div className="text-white text-6xl opacity-20">🎨</div>
                                 </div>
                                 <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full">
-                                    <span className="text-sm font-bold text-gray-800">₹{workshop.price}</span>
+                                    <span className="text-sm font-bold text-gray-800">FREE</span>
                                 </div>
                             </div>
 
@@ -207,8 +208,8 @@ const WorkshopsPage = () => {
                                     onClick={() => handleRegister(workshop)}
                                     disabled={workshop.availableSlots === 0}
                                     className={`w-full py-3 rounded-xl font-bold text-white transition-all transform hover:scale-105 ${workshop.availableSlots === 0
-                                            ? 'bg-gray-400 cursor-not-allowed'
-                                            : 'bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 shadow-lg hover:shadow-xl'
+                                        ? 'bg-gray-400 cursor-not-allowed'
+                                        : 'bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 shadow-lg hover:shadow-xl'
                                         }`}
                                 >
                                     {workshop.availableSlots === 0 ? 'Sold Out' : 'Register Now'}
@@ -242,6 +243,7 @@ const RegistrationModal = ({ workshop, onClose }) => {
     });
     const [errors, setErrors] = useState({});
     const [submitting, setSubmitting] = useState(false);
+    const [submitError, setSubmitError] = useState(null);
 
     const handleChange = (e) => {
         setFormData({
@@ -255,6 +257,7 @@ const RegistrationModal = ({ workshop, onClose }) => {
                 [e.target.name]: ''
             });
         }
+        setSubmitError(null);
     };
 
     const validateForm = () => {
@@ -284,20 +287,37 @@ const RegistrationModal = ({ workshop, onClose }) => {
         if (!validateForm()) return;
 
         setSubmitting(true);
+        setSubmitError(null);
 
-        // Simulate API call
-        setTimeout(() => {
-            // Store registration data in session storage
-            sessionStorage.setItem('registrationData', JSON.stringify({
-                ...formData,
-                workshop: workshop.title,
+        try {
+            const result = await submitWorkshopRegistration({
                 workshopId: workshop.id,
-                amount: workshop.price
-            }));
+                name: formData.name,
+                email: formData.email,
+                phone: formData.phone,
+                rollNumber: formData.rollNumber,
+                college: formData.college
+            });
 
-            // Redirect to payment page
-            router.push('/payment?type=workshop&id=' + workshop.id);
-        }, 1000);
+            if (result.success) {
+                // Store success data and redirect to success page
+                sessionStorage.setItem('registrationSuccess', JSON.stringify({
+                    type: 'workshop',
+                    name: formData.name,
+                    email: formData.email,
+                    workshopName: workshop.title,
+                    message: result.message
+                }));
+                router.push('/register/success');
+            } else {
+                setSubmitError(result.error);
+                setSubmitting(false);
+            }
+        } catch (error) {
+            console.error('Submission error:', error);
+            setSubmitError('An unexpected error occurred. Please try again.');
+            setSubmitting(false);
+        }
     };
 
     return (
@@ -325,6 +345,18 @@ const RegistrationModal = ({ workshop, onClose }) => {
 
                 {/* Modal Body */}
                 <form onSubmit={handleSubmit} className="p-6">
+                    {/* Error Alert */}
+                    {submitError && (
+                        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl">
+                            <div className="flex items-start">
+                                <svg className="w-5 h-5 text-red-600 mt-0.5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                </svg>
+                                <p className="text-sm text-red-800">{submitError}</p>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="space-y-4">
                         {/* Name */}
                         <div>
@@ -424,8 +456,8 @@ const RegistrationModal = ({ workshop, onClose }) => {
                             <p><span className="font-semibold">Workshop:</span> {workshop.title}</p>
                             <p><span className="font-semibold">Instructor:</span> {workshop.instructor}</p>
                             <p><span className="font-semibold">Duration:</span> {workshop.duration}</p>
-                            <p className="text-lg font-bold text-gray-800 mt-2">
-                                Total Amount: ₹{workshop.price}
+                            <p className="text-lg font-bold text-green-600 mt-2">
+                                FREE Registration
                             </p>
                         </div>
                     </div>
@@ -442,10 +474,10 @@ const RegistrationModal = ({ workshop, onClose }) => {
                                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                 </svg>
-                                Processing...
+                                Submitting...
                             </span>
                         ) : (
-                            'Proceed to Payment'
+                            'Complete Registration'
                         )}
                     </button>
                 </form>
