@@ -1,12 +1,12 @@
 /**
- * Payment Service - Handles payment screenshot uploads to Google Drive
+ * Payment Service - Handles payment screenshot uploads via server-side API
  */
-
 
 /**
  * Compress image before upload to reduce size and upload time
+ * Aggressive compression for fast uploads even on slow networks
  */
-async function compressImage(file, maxWidth = 1200, quality = 0.8) {
+async function compressImage(file, maxWidth = 1000, quality = 0.7) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.readAsDataURL(file);
@@ -31,6 +31,10 @@ async function compressImage(file, maxWidth = 1200, quality = 0.8) {
 
                 canvas.toBlob(
                     (blob) => {
+                        if (!blob) {
+                            reject(new Error('Failed to compress image'));
+                            return;
+                        }
                         resolve(new File([blob], file.name, {
                             type: 'image/jpeg',
                             lastModified: Date.now(),
@@ -40,14 +44,14 @@ async function compressImage(file, maxWidth = 1200, quality = 0.8) {
                     quality
                 );
             };
-            img.onerror = reject;
+            img.onerror = () => reject(new Error('Failed to load image'));
         };
-        reader.onerror = reject;
+        reader.onerror = () => reject(new Error('Failed to read file'));
     });
 }
 
 /**
- * Upload payment screenshot to Google Drive via API
+ * Upload payment screenshot to Firebase Storage
  * @param {File} file - Payment screenshot file
  * @param {string} rollNumber - Student's roll number
  * @param {Function} onProgress - Progress callback (0-100)
@@ -62,36 +66,44 @@ export async function uploadPaymentScreenshot(file, rollNumber, onProgress = nul
     });
 
     try {
-        // Validate file
+        // Validate file type
         if (!file.type.startsWith("image/")) {
             throw new Error("File must be an image");
         }
 
+        // Validate file size (before compression)
         if (file.size > 5 * 1024 * 1024) {
             throw new Error("File size must be less than 5MB");
         }
 
-        // Compress image to reduce upload time
-        console.log("🔄 Compressing image...");
-        const compressedFile = await compressImage(file);
-        console.log("✅ Compressed to:", `${(compressedFile.size / 1024).toFixed(2)} KB`);
-        console.log("💾 Size reduction:", `${((1 - compressedFile.size / file.size) * 100).toFixed(1)}%`);
+        // Compress image aggressively for fast uploads
+        console.log("🔄 Compressing image (max 1000px, quality 0.7)...");
+        const compressedFile = await compressImage(file, 1000, 0.7);
 
-        // Upload to Google Drive via API
-        console.log("📍 Uploading to Google Drive...");
+        const originalSizeKB = (file.size / 1024).toFixed(2);
+        const compressedSizeKB = (compressedFile.size / 1024).toFixed(2);
+        const reductionPercent = ((1 - compressedFile.size / file.size) * 100).toFixed(1);
 
-        // Create form data
-        const formData = new FormData();
-        formData.append('file', compressedFile);
-        formData.append('rollNumber', rollNumber);
+        console.log("✅ Compressed successfully!");
+        console.log(`   Original: ${originalSizeKB} KB`);
+        console.log(`   Compressed: ${compressedSizeKB} KB`);
+        console.log(`   Reduction: ${reductionPercent}%`);
+
+        // Upload via server-side API (bypasses CORS completely)
+        console.log("📍 Uploading via server API...");
 
         // Update progress to show upload starting
         if (onProgress) {
             onProgress(10);
         }
 
+        // Create form data
+        const formData = new FormData();
+        formData.append('file', compressedFile);
+        formData.append('rollNumber', rollNumber);
+
         // Call API route
-        const response = await fetch('/api/upload', {
+        const response = await fetch('/api/upload-screenshot', {
             method: 'POST',
             body: formData,
         });
@@ -114,7 +126,7 @@ export async function uploadPaymentScreenshot(file, rollNumber, onProgress = nul
 
         // Upload completed
         console.log("✅ Upload complete!");
-        console.log("🔗 Drive URL:", data.url);
+        console.log("🔗 Firebase Storage URL:", data.url);
 
         if (onProgress) {
             onProgress(100);
@@ -129,4 +141,3 @@ export async function uploadPaymentScreenshot(file, rollNumber, onProgress = nul
         throw error;
     }
 }
-

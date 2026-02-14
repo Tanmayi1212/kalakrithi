@@ -3,16 +3,18 @@
 import { useState, useEffect } from "react";
 import { signInAnonymously } from "firebase/auth";
 import { auth } from "@/src/firebase";
+import { useRouter } from "next/navigation";
 import {
     getWorkshops,
     subscribeToWorkshopSlots,
     createBooking,
 } from "@/src/services/workshopService";
-import { uploadPaymentScreenshot } from "@/src/services/paymentService";
+import { uploadPaymentScreenshot } from "@/src/services/storageService";
 import toast, { Toaster } from "react-hot-toast";
-import { CheckCircle, Clock, Users, AlertCircle, Upload, X, QrCode } from "lucide-react";
+import { CheckCircle, Clock, Users, Upload, X, QrCode } from "lucide-react";
 
 export default function WorkshopRegistration() {
+    const router = useRouter();
     const [workshops, setWorkshops] = useState([]);
     const [selectedWorkshop, setSelectedWorkshop] = useState(null);
     const [slots, setSlots] = useState([]);
@@ -20,7 +22,7 @@ export default function WorkshopRegistration() {
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
 
-    // Multi-step state: 'details' | 'payment' | 'uploading' | 'complete'
+    // Multi-step state: 'details' | 'payment' | 'uploading'
     const [step, setStep] = useState("details");
     const [paymentScreenshot, setPaymentScreenshot] = useState(null);
     const [screenshotPreview, setScreenshotPreview] = useState(null);
@@ -47,15 +49,13 @@ export default function WorkshopRegistration() {
     }, [selectedWorkshop]);
 
     async function init() {
-        console.log("🔍 INIT: Starting workshop registration initialization...");
         try {
             if (!auth.currentUser) {
                 await signInAnonymously(auth);
             }
 
             const workshopsData = await getWorkshops();
-            const activeWorkshops = workshopsData.filter((w) => w.isActive);
-            setWorkshops(activeWorkshops);
+            setWorkshops(workshopsData);
             setLoading(false);
         } catch (error) {
             console.error("❌ INIT ERROR:", error);
@@ -115,7 +115,7 @@ export default function WorkshopRegistration() {
             return;
         }
 
-        // Proceed to payment step instead of creating booking directly
+        // Proceed to payment step
         setStep("payment");
         toast.success("Details saved! Please complete payment.");
     }
@@ -123,6 +123,11 @@ export default function WorkshopRegistration() {
     async function handleFinalSubmit() {
         if (!paymentScreenshot) {
             toast.error("Please upload payment screenshot");
+            return;
+        }
+
+        if (!selectedWorkshop || !selectedSlot) {
+            toast.error("Session expired. Please refresh.");
             return;
         }
 
@@ -134,6 +139,8 @@ export default function WorkshopRegistration() {
             // Upload screenshot with progress tracking
             const screenshotURL = await uploadPaymentScreenshot(
                 paymentScreenshot,
+                selectedWorkshop.id,
+                selectedSlot.id,
                 formData.rollNumber,
                 (progress) => {
                     setUploadProgress(progress);
@@ -155,8 +162,19 @@ export default function WorkshopRegistration() {
             toast.dismiss();
 
             if (result.success) {
-                setStep("complete");
-                toast.success("Registration successful! Awaiting admin confirmation.");
+                // Store success data for the success page
+                sessionStorage.setItem('registrationSuccess', JSON.stringify({
+                    type: 'workshop',
+                    workshopName: selectedWorkshop.name,
+                    name: formData.name,
+                    email: formData.email,
+                    rollNumber: formData.rollNumber,
+                    slotTime: selectedSlot.time,
+                    message: "Your workshop registration has been submitted successfully."
+                }));
+
+                toast.success("Registration successful!");
+                router.push("/register/success");
             } else {
                 toast.error(result.error || "Registration failed");
                 setStep("payment");
@@ -172,16 +190,6 @@ export default function WorkshopRegistration() {
         }
     }
 
-    function resetForm() {
-        setFormData({ name: "", rollNumber: "", email: "", phone: "" });
-        setSelectedWorkshop(null);
-        setSelectedSlot(null);
-        setSlots([]);
-        setPaymentScreenshot(null);
-        setScreenshotPreview(null);
-        setStep("details");
-    }
-
     function getSlotStatus(slot) {
         if (slot.isClosed) return { label: "Closed", color: "gray" };
         if (slot.remainingSeats === 0) return { label: "Full", color: "red" };
@@ -195,36 +203,6 @@ export default function WorkshopRegistration() {
                 <div className="text-center">
                     <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-teal-600 mx-auto mb-4" />
                     <p className="text-xl text-gray-700">Loading workshops...</p>
-                </div>
-            </div>
-        );
-    }
-
-    // Complete Step
-    if (step === "complete") {
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-teal-50 to-blue-50 flex items-center justify-center p-4">
-                <Toaster position="top-right" />
-                <div className="bg-white rounded-2xl p-8 shadow-2xl max-w-md w-full text-center">
-                    <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <CheckCircle className="w-12 h-12 text-green-600" />
-                    </div>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Registration Successful!</h2>
-                    <p className="text-gray-600 mb-6">
-                        Your booking for <span className="font-semibold text-teal-600">{selectedWorkshop.name}</span> at{" "}
-                        <span className="font-semibold">{selectedSlot.time}</span> has been submitted.
-                    </p>
-                    <div className="bg-yellow-50 rounded-lg p-4 mb-6">
-                        <p className="text-sm text-yellow-800">
-                            ⏳ Your payment is pending admin verification. You'll be notified once confirmed.
-                        </p>
-                    </div>
-                    <button
-                        onClick={resetForm}
-                        className="w-full py-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 font-semibold transition-all"
-                    >
-                        Register for Another Workshop
-                    </button>
                 </div>
             </div>
         );
@@ -299,11 +277,16 @@ export default function WorkshopRegistration() {
                                         ₹{workshop.price}
                                     </span>
                                     <span className="text-sm px-3 py-1 bg-teal-100 text-teal-700 rounded-full font-medium">
-                                        {workshop.duration}
+                                        {workshop.duration || "1 Hour"}
                                     </span>
                                 </div>
                             </button>
                         ))}
+                        {workshops.length === 0 && (
+                            <div className="col-span-3 text-center text-gray-500 py-10">
+                                No active workshops found.
+                            </div>
+                        )}
                     </div>
                 ) : step === "payment" ? (
                     // Payment Step
@@ -417,7 +400,7 @@ export default function WorkshopRegistration() {
                                     </h2>
                                     <p className="text-gray-600">{selectedWorkshop.description}</p>
                                     <p className="text-teal-600 font-semibold mt-2">
-                                        ₹{selectedWorkshop.price} • {selectedWorkshop.duration}
+                                        ₹{selectedWorkshop.price} • {selectedWorkshop.duration || "1 Hour"}
                                     </p>
                                 </div>
                                 <button
