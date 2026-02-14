@@ -272,6 +272,18 @@ export default function WorkshopRegistration() {
                                 <p className="text-sm text-gray-600 mb-4 line-clamp-3">
                                     {workshop.description}
                                 </p>
+                                <div className="mb-3 space-y-1">
+                                    {workshop.venue && (
+                                        <p className="text-xs text-gray-500 flex items-center gap-1">
+                                            <span className="font-semibold">Venue:</span> {workshop.venue}
+                                        </p>
+                                    )}
+                                    {workshop.date && (
+                                        <p className="text-xs text-gray-500 flex items-center gap-1">
+                                            <span className="font-semibold">Date:</span> {workshop.date}
+                                        </p>
+                                    )}
+                                </div>
                                 <div className="flex items-center justify-between">
                                     <span className="text-2xl font-bold text-teal-600">
                                         ₹{workshop.price}
@@ -333,9 +345,9 @@ export default function WorkshopRegistration() {
                             <div className="bg-white border-2 border-gray-200 rounded-xl p-8 mb-8">
                                 <div className="text-center">
                                     <img
-                                        src="/qr/payment-qr.svg"
-                                        alt="Payment QR Code"
-                                        className="w-64 h-auto mx-auto mb-4"
+                                        src={selectedWorkshop.qrCode || "/qr/payment-qr.svg"}
+                                        alt={`QR Code for ${selectedWorkshop.name}`}
+                                        className="w-64 h-auto mx-auto mb-4 object-contain"
                                     />
                                     <p className="text-sm text-gray-600">Scan this QR code to make payment via UPI</p>
                                     <p className="text-xs text-gray-500 mt-2">Amount: ₹{selectedWorkshop.price}</p>
