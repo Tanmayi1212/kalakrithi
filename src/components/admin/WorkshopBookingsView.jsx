@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { subscribeToBookingsByStatus, confirmWorkshopBooking } from "@/src/services/adminWorkshopService";
+import { subscribeToBookingsByStatus, confirmWorkshopBooking, rejectWorkshopBooking } from "@/src/services/adminWorkshopService";
 import { getCurrentAdmin } from "@/src/utils/adminAuth";
 import { CheckCircle, Clock, User, Mail, Phone, Calendar, Eye, Image as ImageIcon } from "lucide-react";
 import { Card } from "../ui/Card";
@@ -60,13 +60,41 @@ export default function WorkshopBookingsView() {
             booking.workshopId,
             booking.slotId,
             booking.rollNumber,
-            adminUser.uid
+            adminUser.uid,
+            booking // Pass full details for email
         );
 
         if (result.success) {
             toast.success(`Confirmed ${booking.name}'s booking`);
         } else {
             toast.error(result.error || "Failed to confirm");
+        }
+
+        setProcessingId(null);
+    }
+
+    async function handleReject(booking) {
+        if (!confirm("Are you sure you want to REJECT this booking?")) return;
+
+        if (!adminUser) {
+            toast.error("Admin user not loaded");
+            return;
+        }
+
+        setProcessingId(booking.id);
+
+        const result = await rejectWorkshopBooking(
+            booking.workshopId,
+            booking.slotId,
+            booking.rollNumber,
+            adminUser.uid,
+            booking // Pass full details for email
+        );
+
+        if (result.success) {
+            toast.success(`Rejected ${booking.name}'s booking`);
+        } else {
+            toast.error(result.error || "Failed to reject");
         }
 
         setProcessingId(null);
@@ -112,8 +140,8 @@ export default function WorkshopBookingsView() {
                 <button
                     onClick={() => setActiveTab("pending")}
                     className={`px-4 py-2 font-medium transition-colors border-b-2 ${activeTab === "pending"
-                            ? "border-yellow-500 text-yellow-700"
-                            : "border-transparent text-gray-500 hover:text-gray-700"
+                        ? "border-yellow-500 text-yellow-700"
+                        : "border-transparent text-gray-500 hover:text-gray-700"
                         }`}
                 >
                     Pending ({pendingBookings.length})
@@ -121,8 +149,8 @@ export default function WorkshopBookingsView() {
                 <button
                     onClick={() => setActiveTab("confirmed")}
                     className={`px-4 py-2 font-medium transition-colors border-b-2 ${activeTab === "confirmed"
-                            ? "border-green-500 text-green-700"
-                            : "border-transparent text-gray-500 hover:text-gray-700"
+                        ? "border-green-500 text-green-700"
+                        : "border-transparent text-gray-500 hover:text-gray-700"
                         }`}
                 >
                     Confirmed ({confirmedBookings.length})
@@ -232,16 +260,25 @@ export default function WorkshopBookingsView() {
                             )}
 
                             {activeTab === "pending" && (
-                                <div className="pt-4 border-t border-gray-200">
+                                <div className="pt-4 border-t border-gray-200 flex gap-2">
                                     <Button
                                         onClick={() => handleConfirm(booking)}
                                         disabled={processingId === booking.id}
                                         variant="success"
                                         size="sm"
                                         icon={CheckCircle}
-                                        className="w-full"
+                                        className="flex-1"
                                     >
-                                        {processingId === booking.id ? "Confirming..." : "Confirm Payment"}
+                                        {processingId === booking.id ? "Processing..." : "Confirm"}
+                                    </Button>
+                                    <Button
+                                        onClick={() => handleReject(booking)}
+                                        disabled={processingId === booking.id}
+                                        variant="destructive" // Using destructive or red style
+                                        size="sm"
+                                        className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                                    >
+                                        Reject
                                     </Button>
                                 </div>
                             )}

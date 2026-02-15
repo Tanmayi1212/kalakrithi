@@ -45,23 +45,93 @@ export async function confirmWorkshopBooking(
     workshopId,
     slotId,
     rollNumber,
-    adminUid
+    adminUid,
+    bookingDetails // Passing full booking details for email
 ) {
-    const bookingRef = doc(
-        db,
-        "workshops",
-        workshopId,
-        "slots",
-        slotId,
-        "bookings",
-        rollNumber
-    );
+    try {
+        const bookingRef = doc(
+            db,
+            "workshops",
+            workshopId,
+            "slots",
+            slotId,
+            "bookings",
+            rollNumber
+        );
 
-    await updateDoc(bookingRef, {
-        paymentStatus: "confirmed",
-        confirmedBy: adminUid,
-        confirmedAt: Timestamp.now(),
-    });
+        await updateDoc(bookingRef, {
+            paymentStatus: "confirmed",
+            confirmedBy: adminUid,
+            confirmedAt: Timestamp.now(),
+        });
 
-    return { success: true };
+        // Trigger Email
+        if (bookingDetails) {
+            await fetch("/api/send-email", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    name: bookingDetails.name,
+                    email: bookingDetails.email,
+                    workshopName: bookingDetails.workshopName,
+                    slotTime: bookingDetails.slotTime,
+                    paymentStatus: "confirmed",
+                }),
+            });
+        }
+
+        return { success: true };
+    } catch (error) {
+        console.error("Confirmation Error:", error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Reject booking
+ */
+export async function rejectWorkshopBooking(
+    workshopId,
+    slotId,
+    rollNumber,
+    adminUid,
+    bookingDetails
+) {
+    try {
+        const bookingRef = doc(
+            db,
+            "workshops",
+            workshopId,
+            "slots",
+            slotId,
+            "bookings",
+            rollNumber
+        );
+
+        await updateDoc(bookingRef, {
+            paymentStatus: "rejected",
+            rejectedBy: adminUid,
+            rejectedAt: Timestamp.now(),
+        });
+
+        // Trigger Email
+        if (bookingDetails) {
+            await fetch("/api/send-email", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    name: bookingDetails.name,
+                    email: bookingDetails.email,
+                    workshopName: bookingDetails.workshopName,
+                    slotTime: bookingDetails.slotTime,
+                    paymentStatus: "rejected",
+                }),
+            });
+        }
+
+        return { success: true };
+    } catch (error) {
+        console.error("Rejection Error:", error);
+        return { success: false, error: error.message };
+    }
 }

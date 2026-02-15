@@ -115,6 +115,31 @@ export default function WorkshopRegistration() {
             return;
         }
 
+        // Validate Roll Number
+        const rollRegex = /^1601\d{8}$/;
+        if (!rollRegex.test(formData.rollNumber)) {
+            toast.error("Invalid roll number. Must start with 1601 and be 12 digits.");
+            return;
+        }
+
+        // Check for duplicate registration before payment
+        try {
+            toast.loading("Checking availability...");
+            const { checkDuplicateRegistration } = await import("@/src/services/workshopService");
+            const duplicateCheck = await checkDuplicateRegistration(selectedWorkshop.id, formData.rollNumber);
+            toast.dismiss();
+
+            if (duplicateCheck.exists) {
+                toast.error("You have already registered for this workshop.");
+                return;
+            }
+        } catch (error) {
+            console.error("Duplicate check failed:", error);
+            toast.dismiss();
+            toast.error("Failed to verify registration status. Please try again.");
+            return;
+        }
+
         // Proceed to payment step
         setStep("payment");
         toast.success("Details saved! Please complete payment.");
