@@ -5,7 +5,7 @@ import {
     getWorkshopsWithSlots,
     updateSlotCapacity,
     toggleSlotStatus,
-} from "@/src/utils/adminService";
+} from "@/src/services/adminWorkshopService";
 import toast from "react-hot-toast";
 
 export default function SlotManager() {
@@ -159,8 +159,8 @@ export default function SlotManager() {
                                                         <button
                                                             onClick={() => handleToggleClick(workshop, slot)}
                                                             className={`px-3 py-1.5 text-white text-sm rounded-lg transition-all ${slot.isClosed
-                                                                    ? "bg-green-600 hover:bg-green-700"
-                                                                    : "bg-gray-600 hover:bg-gray-700"
+                                                                ? "bg-green-600 hover:bg-green-700"
+                                                                : "bg-gray-600 hover:bg-gray-700"
                                                                 }`}
                                                         >
                                                             {slot.isClosed ? "Open" : "Close"}
@@ -186,10 +186,10 @@ export default function SlotManager() {
                                                         <span className="text-gray-600">Remaining Seats:</span>
                                                         <span
                                                             className={`font-semibold ${slot.remainingSeats > 5
-                                                                    ? "text-green-600"
-                                                                    : slot.remainingSeats > 0
-                                                                        ? "text-orange-600"
-                                                                        : "text-red-600"
+                                                                ? "text-green-600"
+                                                                : slot.remainingSeats > 0
+                                                                    ? "text-orange-600"
+                                                                    : "text-red-600"
                                                                 }`}
                                                         >
                                                             {slot.remainingSeats}
@@ -202,10 +202,10 @@ export default function SlotManager() {
                                                     <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
                                                         <div
                                                             className={`h-full transition-all ${slot.isFull
-                                                                    ? "bg-red-500"
-                                                                    : slot.remainingSeats <= 5
-                                                                        ? "bg-orange-500"
-                                                                        : "bg-green-500"
+                                                                ? "bg-red-500"
+                                                                : slot.remainingSeats <= 5
+                                                                    ? "bg-orange-500"
+                                                                    : "bg-green-500"
                                                                 }`}
                                                             style={{
                                                                 width: `${(slot.currentBookings / (slot.maxCapacity || 30)) * 100
@@ -312,8 +312,8 @@ export default function SlotManager() {
                             <button
                                 onClick={handleToggleSlot}
                                 className={`flex-1 py-3 text-white rounded-xl font-semibold ${selectedSlot.isClosed
-                                        ? "bg-green-600 hover:bg-green-700"
-                                        : "bg-red-600 hover:bg-red-700"
+                                    ? "bg-green-600 hover:bg-green-700"
+                                    : "bg-red-600 hover:bg-red-700"
                                     }`}
                             >
                                 Yes, {selectedSlot.isClosed ? "Open" : "Close"} It

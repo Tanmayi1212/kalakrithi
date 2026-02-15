@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getDashboardStats, getWorkshopBookingCounts } from "@/src/utils/adminService";
+import { getDashboardStats, getWorkshopBookingCounts } from "@/src/services/adminWorkshopService";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { LayoutDashboard, CheckCircle2, Clock, Lock, RefreshCw } from "lucide-react";
 import { StatCard } from "../ui/StatCard";

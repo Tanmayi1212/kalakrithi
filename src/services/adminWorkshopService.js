@@ -7,12 +7,38 @@ import {
     doc,
     updateDoc,
     Timestamp,
+    getDocs,
+    collection,
+    increment
 } from "firebase/firestore";
+
 import { db } from "@/src/firebase";
 
+/* ------------------------ Helper ------------------------ */
+
 /**
- * Subscribe to bookings by status
+ * Helper to sanitize Firestore data
+ * Converts Timestamps to Dates to prevent React rendering errors
  */
+const sanitizeData = (data) => {
+    if (!data) return data;
+    const clean = { ...data };
+
+    Object.keys(clean).forEach((key) => {
+        if (
+            clean[key] &&
+            typeof clean[key] === "object" &&
+            typeof clean[key].toDate === "function"
+        ) {
+            clean[key] = clean[key].toDate().toString();
+        }
+    });
+
+    return clean;
+};
+
+/* ---------------- Subscribe Bookings ---------------- */
+
 export function subscribeToBookingsByStatus(status, callback) {
     const q = query(
         collectionGroup(db, "bookings"),
@@ -23,30 +49,27 @@ export function subscribeToBookingsByStatus(status, callback) {
     return onSnapshot(
         q,
         (snapshot) => {
-            const bookings = snapshot.docs.map(doc => ({
+            const bookings = snapshot.docs.map((doc) => ({
                 id: doc.id,
-                ...doc.data(),
-                createdAt: doc.data().createdAt?.toDate()
+                ...sanitizeData(doc.data())
             }));
 
             callback(bookings);
         },
         (error) => {
-            console.error("ADMIN QUERY ERROR:", error);
+            console.error("Booking Query Error:", error);
             callback([]);
         }
     );
 }
 
-/**
- * Confirm booking
- */
-export async function confirmWorkshopBooking(
+/* ---------------- Accept ---------------- */
+
+export async function acceptWorkshopBooking(
     workshopId,
     slotId,
     rollNumber,
-    adminUid,
-    bookingDetails // Passing full booking details for email
+    adminUid
 ) {
     try {
         const bookingRef = doc(
@@ -60,42 +83,24 @@ export async function confirmWorkshopBooking(
         );
 
         await updateDoc(bookingRef, {
-            paymentStatus: "confirmed",
-            confirmedBy: adminUid,
-            confirmedAt: Timestamp.now(),
+            paymentStatus: "accepted",
+            verifiedBy: adminUid,
+            verifiedAt: Timestamp.now()
         });
-
-        // Trigger Email
-        if (bookingDetails) {
-            await fetch("/api/send-email", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    name: bookingDetails.name,
-                    email: bookingDetails.email,
-                    workshopName: bookingDetails.workshopName,
-                    slotTime: bookingDetails.slotTime,
-                    paymentStatus: "confirmed",
-                }),
-            });
-        }
 
         return { success: true };
     } catch (error) {
-        console.error("Confirmation Error:", error);
         return { success: false, error: error.message };
     }
 }
 
-/**
- * Reject booking
- */
+/* ---------------- Reject ---------------- */
+
 export async function rejectWorkshopBooking(
     workshopId,
     slotId,
     rollNumber,
-    adminUid,
-    bookingDetails
+    adminUid
 ) {
     try {
         const bookingRef = doc(
@@ -110,28 +115,159 @@ export async function rejectWorkshopBooking(
 
         await updateDoc(bookingRef, {
             paymentStatus: "rejected",
-            rejectedBy: adminUid,
-            rejectedAt: Timestamp.now(),
+            verifiedBy: adminUid,
+            verifiedAt: Timestamp.now()
         });
 
-        // Trigger Email
-        if (bookingDetails) {
-            await fetch("/api/send-email", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    name: bookingDetails.name,
-                    email: bookingDetails.email,
-                    workshopName: bookingDetails.workshopName,
-                    slotTime: bookingDetails.slotTime,
-                    paymentStatus: "rejected",
-                }),
-            });
-        }
+        // Decrement slot count
+        const slotRef = doc(db, "workshops", workshopId, "slots", slotId);
+        await updateDoc(slotRef, {
+            currentBookings: increment(-1)
+        });
 
         return { success: true };
     } catch (error) {
-        console.error("Rejection Error:", error);
         return { success: false, error: error.message };
+    }
+}
+
+/* ---------------- Attendance ---------------- */
+
+export async function markAttendance(workshopId, slotId, rollNumber, attended) {
+    try {
+        const bookingRef = doc(db, "workshops", workshopId, "slots", slotId, "bookings", rollNumber);
+        await updateDoc(bookingRef, {
+            attended: attended,
+            attendanceMarkedAt: Timestamp.now()
+        });
+        return { success: true };
+    } catch (error) {
+        console.error("Attendance Error:", error);
+        return { success: false, error: error.message };
+    }
+}
+
+/* ---------------- Workshops & Slots ---------------- */
+
+export async function getWorkshopsWithSlots() {
+    try {
+        // Fetch all workshops first
+        const workshopsSnapshot = await getDocs(collection(db, "workshops"));
+        const workshops = workshopsSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...sanitizeData(doc.data()),
+            slots: []
+        }));
+
+        // Now fetch slots for each workshop
+        for (const workshop of workshops) {
+            const slotsSnapshot = await getDocs(collection(db, "workshops", workshop.id, "slots"));
+            workshop.slots = slotsSnapshot.docs.map(doc => ({
+                id: doc.id,
+                ...sanitizeData(doc.data())
+            }));
+        }
+
+        return workshops;
+    } catch (error) {
+        console.error("Get Workshops Error:", error);
+        return [];
+    }
+}
+
+export async function updateSlotCapacity(workshopId, slotId, newCapacity) {
+    try {
+        const slotRef = doc(db, "workshops", workshopId, "slots", slotId);
+        await updateDoc(slotRef, {
+            maxCapacity: newCapacity
+        });
+        return { success: true };
+    } catch (error) {
+        console.error("Update Capacity Error:", error);
+        return { success: false, error: error.message };
+    }
+}
+
+export async function toggleSlotStatus(workshopId, slotId, isClosed) {
+    try {
+        const slotRef = doc(db, "workshops", workshopId, "slots", slotId);
+        await updateDoc(slotRef, {
+            isClosed: isClosed
+        });
+        return { success: true };
+    } catch (error) {
+        console.error("Toggle Slot Error:", error);
+        return { success: false, error: error.message };
+    }
+}
+
+/* ---------------- Dashboard Stats ---------------- */
+
+export async function getDashboardStats() {
+    try {
+        const workshopsSnapshot = await getDocs(collection(db, "workshops"));
+        const bookingsSnapshot = await getDocs(collectionGroup(db, "bookings"));
+
+        let totalWorkshops = workshopsSnapshot.size;
+        let totalConfirmedBookings = 0;
+        let totalPendingPayments = 0;
+        let fullSlotsCount = 0;
+
+        bookingsSnapshot.forEach(doc => {
+            const data = doc.data();
+            if (data.paymentStatus === "accepted" || data.paymentStatus === "confirmed") {
+                totalConfirmedBookings++;
+            } else if (data.paymentStatus === "pending") {
+                totalPendingPayments++;
+            }
+        });
+
+        for (const workshopDoc of workshopsSnapshot.docs) {
+            const slotsSnapshot = await getDocs(collection(db, "workshops", workshopDoc.id, "slots"));
+            slotsSnapshot.forEach(slotDoc => {
+                const slot = slotDoc.data();
+                const capacity = slot.maxCapacity || 30;
+                if (slot.currentBookings >= capacity) {
+                    fullSlotsCount++;
+                }
+            });
+        }
+
+        return {
+            totalWorkshops,
+            totalConfirmedBookings,
+            totalPendingPayments,
+            fullSlotsCount
+        };
+    } catch (error) {
+        console.error("Dashboard Stats Error:", error);
+        return {
+            totalWorkshops: 0,
+            totalConfirmedBookings: 0,
+            totalPendingPayments: 0,
+            fullSlotsCount: 0
+        };
+    }
+}
+
+export async function getWorkshopBookingCounts() {
+    try {
+        const bookingsSnapshot = await getDocs(query(collectionGroup(db, "bookings"), where("paymentStatus", "in", ["confirmed", "accepted"])));
+        const counts = {};
+
+        bookingsSnapshot.forEach(doc => {
+            const data = doc.data();
+            const workshopName = data.workshopName || "Unknown";
+            counts[workshopName] = (counts[workshopName] || 0) + 1;
+        });
+
+        // Convert to array for Recharts
+        return Object.entries(counts).map(([name, count]) => ({
+            workshopName: name,
+            count: count
+        }));
+    } catch (error) {
+        console.error("Booking Counts Error:", error);
+        return [];
     }
 }

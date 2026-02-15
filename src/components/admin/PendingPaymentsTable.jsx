@@ -1,108 +1,111 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "@/src/firebase";
 import {
     subscribeToBookingsByStatus,
-    confirmWorkshopBooking
+    acceptWorkshopBooking,
+    rejectWorkshopBooking
 } from "@/src/services/adminWorkshopService";
-import { getCurrentAdmin } from "@/src/utils/adminAuth";
-import { CheckCircle, Clock, Loader2 } from "lucide-react";
-import { Badge } from "../ui/Badge";
-import { Button } from "../ui/Button";
-import { Card } from "../ui/Card";
 
 export default function PendingPaymentsTable() {
     const [bookings, setBookings] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [processingId, setProcessingId] = useState(null);
     const [adminUser, setAdminUser] = useState(null);
 
     useEffect(() => {
-        loadAdminUser();
-    }, []);
-
-    useEffect(() => {
-        const unsubscribe = subscribeToBookingsByStatus(
+        const unsubAuth = onAuthStateChanged(auth, setAdminUser);
+        const unsubBookings = subscribeToBookingsByStatus(
             "pending",
-            (data) => {
-                setBookings(data);
-                setLoading(false);
-            }
+            setBookings
         );
 
-        return () => unsubscribe();
+        return () => {
+            unsubAuth();
+            unsubBookings();
+        };
     }, []);
 
-    async function loadAdminUser() {
-        const { user } = await getCurrentAdmin();
-        setAdminUser(user);
-    }
+    const formatDate = (date) => {
+        if (!date) return "-";
+        return new Date(date).toLocaleString("en-IN");
+    };
 
-    async function handleConfirm(booking) {
+    const handleAccept = async (b) => {
         if (!adminUser) return;
-
-        setProcessingId(booking.id);
-
-        const result = await confirmWorkshopBooking(
-            booking.workshopId,
-            booking.slotId,
-            booking.rollNumber,
+        await acceptWorkshopBooking(
+            b.workshopId,
+            b.slotId,
+            b.rollNumber,
             adminUser.uid
         );
+    };
 
-        setProcessingId(null);
-    }
-
-    if (loading) {
-        return (
-            <div className="p-6">
-                <Loader2 className="animate-spin" />
-            </div>
+    const handleReject = async (b) => {
+        if (!adminUser) return;
+        await rejectWorkshopBooking(
+            b.workshopId,
+            b.slotId,
+            b.rollNumber,
+            adminUser.uid
         );
-    }
+    };
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <h1 className="text-2xl font-bold">Pending Bookings</h1>
-                <Badge variant="warning">
-                    <Clock className="w-4 h-4 mr-1" />
-                    {bookings.length}
-                </Badge>
-            </div>
+            <h1 className="text-2xl font-bold">Pending Payments</h1>
 
-            {bookings.length === 0 ? (
-                <Card className="p-6 text-center">
-                    No pending payments 🎉
-                </Card>
-            ) : (
-                <Card className="p-6">
-                    {bookings.map((booking) => (
-                        <div
-                            key={booking.id}
-                            className="flex justify-between items-center border-b py-3"
-                        >
-                            <div>
-                                <p className="font-medium">{booking.name}</p>
-                                <p className="text-sm text-gray-500">
-                                    {booking.workshopName} · {booking.slotTime}
-                                </p>
+            {bookings.map((b) => (
+                <div
+                    key={`${b.workshopId}-${b.slotId}-${b.rollNumber}`}
+                    className="border p-4 flex justify-between items-center"
+                >
+                    <div>
+                        <p>{b.name}</p>
+                        <p className="text-sm text-gray-500">
+                            {b.workshopName} · {b.slotTime}
+                        </p>
+                        <p className="text-xs text-gray-400 mb-2">
+                            {formatDate(b.createdAt)}
+                        </p>
+
+                        {b.paymentScreenshot && (
+                            <div className="mb-2">
+                                <p className="text-xs font-semibold text-gray-600 mb-1">Payment Screenshot:</p>
+                                <a href={b.paymentScreenshot} target="_blank" rel="noopener noreferrer" className="inline-block">
+                                    <img
+                                        src={b.paymentScreenshot}
+                                        alt="Payment"
+                                        className="h-64 w-auto max-w-full rounded-lg border border-gray-200 hover:opacity-90 transition-opacity cursor-pointer shadow-sm"
+                                    />
+                                </a>
                             </div>
+                        )}
 
-                            <Button
-                                onClick={() => handleConfirm(booking)}
-                                disabled={processingId === booking.id}
-                                variant="success"
-                                size="sm"
-                            >
-                                {processingId === booking.id
-                                    ? "Processing..."
-                                    : "Confirm"}
-                            </Button>
-                        </div>
-                    ))}
-                </Card>
-            )}
+                        <p className="text-sm">
+                            <span className="font-semibold text-gray-600">UTR:</span>
+                            <span className="font-mono ml-1 bg-gray-100 px-2 py-0.5 rounded text-gray-800 select-all">
+                                {b.transactionId || "N/A"}
+                            </span>
+                        </p>
+                    </div>
+
+                    <div className="space-x-2">
+                        <button
+                            onClick={() => handleAccept(b)}
+                            className="bg-green-600 text-white px-3 py-1 rounded"
+                        >
+                            Accept
+                        </button>
+                        <button
+                            onClick={() => handleReject(b)}
+                            className="bg-red-600 text-white px-3 py-1 rounded"
+                        >
+                            Reject
+                        </button>
+                    </div>
+                </div>
+            ))}
         </div>
     );
 }

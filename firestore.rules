@@ -15,6 +15,14 @@ service cloud.firestore {
     }
 
     // ============================================
+    // COLLECTION GROUP QUERIES
+    // ============================================
+    match /{path=**}/bookings/{booking} {
+      allow read: if true;
+      allow write: if isAdmin(); // Explicitly allow admins to update/verify (e.g. paymentStatus)
+    }
+
+    // ============================================
     // WORKSHOPS COLLECTION
     // ============================================
     match /workshops/{workshopId} {
@@ -24,48 +32,31 @@ service cloud.firestore {
       // SLOTS SUBCOLLECTION
       match /slots/{slotId} {
         allow read: if true;
-        allow write: if isAdmin(); // Admin can manage slots (open/close)
-        
-        // Allow updates to currentBookings during transaction by anyone (technically needed for increment)
-        // actually, for `increment` to work in a transaction by a public user, we might need to allow update 
-        // strictly for that field or trust the client code if we don't have Cloud Functions.
-        // But better: relying on `isAdmin` for structure changes, but for booking count?
-        // Let's stick to the user request: "Allow booking creation safely".
-        // The user request said: "match /workshops/{workshopId}/slots/{slotId}/bookings/{rollNumber} { allow create; allow read; }"
-        // It didn't explicitly ask for `slots` update permission for public. 
-        // However, `increment` on parent doc requires write permission on parent doc.
-        // We will allow update on `slots` IF it's only `currentBookings` changing and strictly incrementing? 
-        // Realistically, for this phase without Cloud Functions, we might need to be lenient or specific.
-        // Let's follow the USER'S rule snippet for bookings exactly, and add the necessary slot update rule.
+        allow write: if isAdmin();
         
         // Allow updates to currentBookings during transaction
-        // Use .get() to handle cases where currentBookings might be missing on legacy/manual docs
         allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['currentBookings']) 
                       && request.resource.data.currentBookings == resource.data.get('currentBookings', 0) + 1;
 
-        // BOOKINGS SUBCOLLECTION
+        // BOOKINGS SUBCOLLECTION (Keep this for detailed path access if needed)
         match /bookings/{rollNumber} {
-          allow read: if true; // User needs to read to check duplicates? Or just admin/owner? User request said "allow read;"
-          allow create: if true; // Public booking allowed as per requirements (validated via transaction)
-          // We can add validation here:
-          // allow create: if request.resource.data.keys().hasAll(['name', 'email', 'rollNumber', 'phone', 'workshopId', 'slotId', 'paymentScreenshot'])
+          allow read: if true;
+          allow create: if true;
         }
       }
     }
 
     // ============================================
-    // ADMINS (Keep existing)
+    // ADMINS
     // ============================================
     match /admins/{uid} {
       allow read: if isAuthenticated() && request.auth.uid == uid;
-      allow write: if false;
+      allow write: if false; // Admins are created manually in console
     }
 
     // ============================================
-    // Payment Screenshots (Metadata if needed, but mostly Storage handles this)
+    // DEFAULT DENY
     // ============================================
-
-    // Deny all other access
     match /{document=**} {
       allow read, write: if false;
     }
